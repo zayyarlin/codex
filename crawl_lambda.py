@@ -7,7 +7,8 @@ from urllib.request import urlopen
 from ckanapi import RemoteCKAN
 
 data_gov_ckan = RemoteCKAN('https://data.gov.sg/', user_agent='')
-conn = psycopg2.connect(dbname="", user="", password="")
+conn = psycopg2.connect(database='', user='', password="",
+        host='', port='5432')
 cur = conn.cursor()
 
 # Access the resource and return a CSV reader
