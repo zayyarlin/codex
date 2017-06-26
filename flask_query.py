@@ -37,7 +37,7 @@ def create_table_name(id):
     return 'table_' + id.replace('-', '_')
 
 def get_conn():
-    return psycopg2.connect(dbname="", user="", password="")
+   return psycopg2.connect(dbname="", user="", password="")
 
 def get_db():
     """Opens a new database connection if there is none yet for the
@@ -85,7 +85,7 @@ def query():
     cosine_similarities = linear_kernel(query_vector, tf_idf_matrix).flatten()
     related_docs_indices = cosine_similarities.argsort()[:-6:-1]
     result = data['identifier'][related_docs_indices]
-    sql_str = "select * from " + create_table_name(result[0])
+    sql_str = "select * from " + create_table_name(result.values.tolist()[0])
     selected_result = pd.read_sql(sql=sql_str, con=get_db())
     return selected_result.to_html()
 
