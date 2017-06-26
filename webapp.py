@@ -118,7 +118,9 @@ def query():
     cosine_similarities = linear_kernel(query_vector, tf_idf_matrix).flatten()
     related_docs_indices = cosine_similarities.argsort()[:-6:-1]
     result = data['identifier'][related_docs_indices]
-    sql_str = "select * from " + create_table_name(result[0])
+    
+    sql_str = "select * from " + create_table_name(result.values.tolist()[0])
+
     selected_result = pd.read_sql(sql=sql_str, con=get_db())
     selected_result.head().to_html('table.html')
     
