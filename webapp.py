@@ -1,6 +1,7 @@
 from flask import Flask
 from flask import send_file
 from flask import g, request
+import seaborn as sns
 import pandas as pd
 import subprocess
 import boto3
@@ -102,41 +103,56 @@ def close_db(error):
     if hasattr(g, 'pg_conn'):
         g.pg_conn.close()
 
-@app.route("/search")
-def query():
-    # to test, use:
-    # /search?query=3G%20Public%20Cellular%20Mobile%20Telephone%20Services%20-%20Average%20Success%20Rate%20Across%20All%20Cells
-    
-    print('Search called')
-    
-    running_number = str(uuid.uuid4())
-    
-    query_str = request.args.get('query')
+def query(query_str):
     query = [stem_sentence(query_str)]
     query_vector = vectorizer.transform(query)
     cosine_similarities = linear_kernel(query_vector, tf_idf_matrix).flatten()
     related_docs_indices = cosine_similarities.argsort()[:-6:-1]
     result = data['identifier'][related_docs_indices]
-
     sql_str = "select * from " + create_table_name(result.values.tolist()[0])
-
     print(sql_str)
-
     selected_result = pd.read_sql(sql=sql_str, con=get_db())
-    selected_result.head().to_html('table.html')
-    
+    return selected_result
+
+@app.route("/search")
+def search():
+    # to test, use:
+    # /search?query=3G%20Public%20Cellular%20Mobile%20Telephone%20Services%20-%20Average%20Success%20Rate%20Across%20All%20Cells
+    print('Search called')
+    running_number = str(uuid.uuid4())
+    query_str = request.args.get('query')
+    query(query_str).head().to_html('table.html')
+
+    # saving image
     image_name = 'table' + str(running_number) + '.png'
     subprocess.call('/usr/bin/wkhtmltoimage -f png --width 0 table.html ' + image_name, shell=True)
-    
     client = boto3.client('s3',
                           aws_access_key_id=aws_access_key_id,
                           aws_secret_access_key=aws_secret_access_key)
 
     client.upload_file(image_name, 'codex-images', image_name, ExtraArgs={'ACL': 'public-read'})
-    
     return s3Prefix + image_name
 
+@app.route("/visualize")
+def visualize():
+    print('Visualize called')
+    running_number = str(uuid.uuid4())
+    query_str = request.args.get('query')
 
+    # assume columns to be space separated column list
+    columns = request.args.get('columns').split()
+    print(columns)
+    query_result = query(query_str)
+    sns_plot = sns.countplot(data=query_result, x='telco')
+    fig = sns_plot.get_figure()
+    image_name = 'viz' + str(running_number) + '.png'
+    fig.savefig(image_name)
+    client = boto3.client('s3',
+                          aws_access_key_id=aws_access_key_id,
+                          aws_secret_access_key=aws_secret_access_key)
+
+    client.upload_file(image_name, 'codex-images', image_name, ExtraArgs={'ACL': 'public-read'})
+    return s3Prefix + image_name
 
 if __name__ == '__main__':
     app.run(debug=False, port=80, host='0.0.0.0')
