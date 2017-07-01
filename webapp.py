@@ -10,6 +10,7 @@ from sklearn.metrics.pairwise import linear_kernel
 from nltk.stem import SnowballStemmer
 from nltk import word_tokenize
 import json
+import uuid
 
 # Flask app should start in global layout
 app = Flask(__name__)
@@ -65,8 +66,6 @@ def get_db():
 
 s3Prefix = 'https://s3.amazonaws.com/codex-images/'
 
-running_number = 0
-
 conn = get_conn()
 
 data = pd.read_sql(sql="""
@@ -110,7 +109,7 @@ def query():
     
     print('Search called')
     
-    global running_number
+    running_number = str(uuid.uuid4())
     
     query_str = request.args.get('query')
     query = [stem_sentence(query_str)]
@@ -118,8 +117,10 @@ def query():
     cosine_similarities = linear_kernel(query_vector, tf_idf_matrix).flatten()
     related_docs_indices = cosine_similarities.argsort()[:-6:-1]
     result = data['identifier'][related_docs_indices]
-    
+
     sql_str = "select * from " + create_table_name(result.values.tolist()[0])
+
+    print(sql_str)
 
     selected_result = pd.read_sql(sql=sql_str, con=get_db())
     selected_result.head().to_html('table.html')
@@ -132,8 +133,6 @@ def query():
                           aws_secret_access_key=aws_secret_access_key)
 
     client.upload_file(image_name, 'codex-images', image_name, ExtraArgs={'ACL': 'public-read'})
-    
-    running_number = running_number + 1
     
     return s3Prefix + image_name
 
